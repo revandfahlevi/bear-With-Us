@@ -1,0 +1,22 @@
+{
+  "BWU-9684": {
+    "ticketCode": "BWU-9684",
+    "fullName": "ahay",
+    "telegramUsername": "@BaraSagara",
+    "rpName": "Bara",
+    "characterArchetype": "Pengelana Rimba & Penjelajah Alam",
+    "referralSource": "Channel Broadcast Telegram",
+    "createdAt": "2026-10-04T06:00:02.490Z",
+    "sentViaApi": false
+  },
+  "BWU-9004": {
+    "ticketCode": "BWU-9004",
+    "fullName": "uhuy",
+    "telegramUsername": "@BaraSagara",
+    "rpName": "Bara Ganteng",
+    "characterArchetype": "Pengelana Bebas Tanpa Batas",
+    "referralSource": "Direktori Komunitas Roleplay",
+    "createdAt": "2026-10-04T07:07:46.686Z",
+    "sentViaApi": true
+  }
+}

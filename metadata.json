@@ -1,0 +1,6 @@
+{
+  "name": "Bear With Us — Komunitas Telegram Roleplay",
+  "description": "Website resmi komunitas Telegram Roleplay Bear With Us. Dunia nyaman, hangat, dan bersahabat di mana setiap cerita menemukan rumahnya.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
