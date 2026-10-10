@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useRef } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
 import { ScrollyStory } from './components/ScrollyStory';
@@ -14,9 +15,12 @@ import { RulesSection } from './components/RulesSection';
 import { BotChSection } from './components/BotChSection';
 import { JoinExperience } from './components/JoinExperience';
 import { Footer } from './components/Footer';
+import { LoadingScreen } from './components/LoadingScreen';
 
 export default function App() {
   const formRef = useRef<HTMLDivElement | null>(null);
+  const [loading, setLoading] = useState(true);
+  const handleLoaded = useCallback(() => setLoading(false), []);
 
   const scrollToJoin = () => {
     if (formRef.current) {
@@ -39,6 +43,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FAF7F2] text-[#2B2119] relative selection:bg-[#EBDDCF] selection:text-[#261B14]">
+      {/* Loading screen awal */}
+      <AnimatePresence>
+        {loading && <LoadingScreen key="loader" onDone={handleLoaded} />}
+      </AnimatePresence>
+
       {/* Top sticky navigation */}
       <Navbar onJoinClick={scrollToJoin} />
 
@@ -62,6 +71,7 @@ export default function App() {
         {/* Rules Section (5 core rules + Full handbook modal) */}
         <RulesSection />
 
+        {/* Keluh kesah & izin pamit (Bot CH) */}
         <BotChSection />
 
         {/* Join Experience (4-step visual stepper + interactive registration form) */}
