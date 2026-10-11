@@ -6,12 +6,24 @@ function escapeHtml(str: string): string {
     .replace(/"/g, '&quot;');
 }
 
-async function resolveValidChatId(token: string, rawChatId?: string): Promise<string | null> {
-  const botSelfId = token.split(':')[0]?.trim();
-  const cleaned = rawChatId?.trim() || '';
+// TELEGRAM_CHAT_ID boleh berisi satu atau beberapa ID, dipisah koma
+function parseChatIds(raw?: string): string[] {
+  return Array.from(
+    new Set(
+      (raw || '')
+        .split(/[,;\s]+/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+    )
+  );
+}
 
-  if (cleaned && cleaned !== botSelfId) {
-    return cleaned;
+async function resolveValidChatIds(token: string, rawChatIds?: string): Promise<string[]> {
+  const botSelfId = token.split(':')[0]?.trim();
+  const configured = parseChatIds(rawChatIds).filter((id) => id !== botSelfId);
+
+  if (configured.length > 0) {
+    return configured;
   }
 
   try {
@@ -22,13 +34,19 @@ async function resolveValidChatId(token: string, rawChatId?: string): Promise<st
         const item = data.result[i];
         const chatId = item.message?.chat?.id || item.my_chat_member?.chat?.id;
         if (chatId && String(chatId) !== botSelfId) {
-          return String(chatId);
+          return [String(chatId)];
         }
       }
     }
   } catch {}
 
-  return cleaned || null;
+  return [];
+}
+
+interface SendResult {
+  chatId: string;
+  ok: boolean;
+  error?: string;
 }
 
 export default async function handler(req: any, res: any) {
@@ -48,9 +66,9 @@ export default async function handler(req: any, res: any) {
   const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
 
   if (token) {
-    const chatId = await resolveValidChatId(token, process.env.TELEGRAM_CHAT_ID);
+    const chatIds = await resolveValidChatIds(token, process.env.TELEGRAM_CHAT_ID);
 
-    if (chatId) {
+    if (chatIds.length > 0) {
       const headerTitle =
         actionType === 'keluhan'
           ? '🛡️ <b>LAPORAN KELUHAN SUASANA CC (RULE #09) — BOT CH</b>'
@@ -66,27 +84,44 @@ export default async function handler(req: any, res: any) {
         `<i>Prinsip Pengurus: Solve, Don't Spill.</i>`,
       ].join('\n');
 
-      try {
-        const sendRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: chatId,
-            text,
-            parse_mode: 'HTML',
-          }),
+      // Kirim ke semua tujuan sekaligus
+      const results: SendResult[] = await Promise.all(
+        chatIds.map(async (chatId): Promise<SendResult> => {
+          try {
+            const sendRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: chatId,
+                text,
+                parse_mode: 'HTML',
+              }),
+            });
+            const sendData = await sendRes.json();
+            if (sendData.ok) return { chatId, ok: true };
+            return { chatId, ok: false, error: sendData.description || 'Telegram menolak pesan.' };
+          } catch {
+            return { chatId, ok: false, error: 'Gagal menghubungi Telegram.' };
+          }
+        })
+      );
+
+      const failed = results.filter((r) => !r.ok);
+      failed.forEach((f) => console.error(`[botch] gagal kirim ke chat ${f.chatId}: ${f.error}`));
+
+      if (failed.length < results.length) {
+        return res.status(200).json({
+          ok: true,
+          sentViaApi: true,
+          delivered: results.length - failed.length,
+          failed: failed.length,
         });
-        const sendData = await sendRes.json();
-        if (sendData.ok) {
-          return res.status(200).json({ ok: true, sentViaApi: true });
-        }
-        return res.status(502).json({
-          ok: false,
-          error: sendData.description || 'Telegram menolak pesan.',
-        });
-      } catch {
-        return res.status(502).json({ ok: false, error: 'Gagal menghubungi Telegram.' });
       }
+
+      return res.status(502).json({
+        ok: false,
+        error: failed[0]?.error || 'Telegram menolak pesan.',
+      });
     }
   }
 
