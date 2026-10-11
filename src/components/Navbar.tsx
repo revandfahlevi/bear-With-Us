@@ -58,13 +58,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onJoinClick }) => {
             <span className="font-display font-semibold text-lg sm:text-xl tracking-tight text-[#221812]">
               BEAR WITH US
             </span>
-            <span className="hidden sm:inline text-[11px] font-mono uppercase tracking-widest text-[#917F72] border-l border-[#221812]/15 pl-2.5">
+            <span className="hidden 2xl:inline text-[11px] font-mono uppercase tracking-widest text-[#917F72] border-l border-[#221812]/15 pl-2.5">
               EST. 19 SEPT
             </span>
           </a>
 
           {/* Zone 2: Navigation Links (Clean text links with hover underline) */}
-          <nav className="hidden md:flex items-center gap-7 lg:gap-8">
+          <nav className="hidden xl:flex items-center gap-5 2xl:gap-8">
             {navLinks.map((link) => (
               <a
                 key={link.label}
@@ -92,7 +92,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onJoinClick }) => {
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 text-[#221812] hover:bg-[#EBE4D8] rounded-md transition-colors cursor-pointer"
+              className="xl:hidden p-2 text-[#221812] hover:bg-[#EBE4D8] rounded-md transition-colors cursor-pointer"
               aria-label="Buka menu"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -102,7 +102,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onJoinClick }) => {
 
         {/* Mobile menu panel */}
         {mobileMenuOpen && (
-          <div className="md:hidden mt-3 p-4 bg-[#F8F5F0] border border-[#221812]/15 rounded-lg shadow-md animate-in fade-in duration-150">
+          <div className="xl:hidden mt-3 p-4 max-h-[75vh] overflow-y-auto bg-[#F8F5F0] border border-[#221812]/15 rounded-lg shadow-md animate-in fade-in duration-150">
             <nav className="flex flex-col space-y-1">
               {navLinks.map((link) => (
                 <a

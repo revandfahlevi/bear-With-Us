@@ -16,6 +16,9 @@ import { BotChSection } from './components/BotChSection';
 import { JoinExperience } from './components/JoinExperience';
 import { Footer } from './components/Footer';
 import { LoadingScreen } from './components/LoadingScreen';
+import { Reveal } from './components/Reveal';
+import { ScrollProgress } from './components/ScrollProgress';
+import { BackToTop } from './components/BackToTop';
 
 export default function App() {
   const formRef = useRef<HTMLDivElement | null>(null);
@@ -48,6 +51,10 @@ export default function App() {
         {loading && <LoadingScreen key="loader" onDone={handleLoaded} />}
       </AnimatePresence>
 
+      {/* Indikator progres scroll & tombol kembali ke atas */}
+      <ScrollProgress />
+      <BackToTop />
+
       {/* Top sticky navigation */}
       <Navbar onJoinClick={scrollToJoin} />
 
@@ -60,26 +67,40 @@ export default function App() {
         <ScrollyStory />
 
         {/* Founder & Our Team Section */}
-        <TeamSection />
+        <Reveal>
+          <TeamSection />
+        </Reveal>
 
         {/* Why Join Bear With Us (4 core pillars) */}
-        <WhyJoinSection />
+        <Reveal>
+          <WhyJoinSection />
+        </Reveal>
 
         {/* Community Preview & Gallery (with Lightbox) */}
-        <GallerySection />
+        <Reveal direction="scale">
+          <GallerySection />
+        </Reveal>
 
         {/* Rules Section (5 core rules + Full handbook modal) */}
-        <RulesSection />
+        <Reveal>
+          <RulesSection />
+        </Reveal>
 
         {/* Keluh kesah & izin pamit (Bot CH) */}
-        <BotChSection />
+        <Reveal direction="scale">
+          <BotChSection />
+        </Reveal>
 
         {/* Join Experience (4-step visual stepper + interactive registration form) */}
-        <JoinExperience formRef={formRef} />
+        <Reveal>
+          <JoinExperience formRef={formRef} />
+        </Reveal>
       </main>
 
       {/* Footer */}
-      <Footer />
+      <Reveal direction="up" amount={0.2}>
+        <Footer />
+      </Reveal>
     </div>
   );
 }

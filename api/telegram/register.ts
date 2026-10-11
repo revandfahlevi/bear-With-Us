@@ -6,126 +6,127 @@ function escapeHtml(str: string): string {
     .replace(/"/g, '&quot;');
 }
 
+// TELEGRAM_CHAT_ID boleh berisi satu atau beberapa ID, dipisah koma
+function parseChatIds(raw?: string): string[] {
+  return Array.from(
+    new Set(
+      (raw || '')
+        .split(/[,;\s]+/)
+        .map((s) => s.trim().replace(/^["']+|["']+$/g, ''))
+        .filter(Boolean)
+    )
+  );
+}
+
+async function resolveValidChatIds(token: string, rawChatIds?: string): Promise<string[]> {
+  const botSelfId = token.split(':')[0]?.trim();
+  const configured = parseChatIds(rawChatIds).filter((id) => id !== botSelfId);
+
+  if (configured.length > 0) {
+    return configured;
+  }
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/getUpdates?limit=20`);
+    const data = await res.json();
+    if (data.ok && Array.isArray(data.result)) {
+      for (let i = data.result.length - 1; i >= 0; i--) {
+        const item = data.result[i];
+        const chatId = item.message?.chat?.id || item.my_chat_member?.chat?.id;
+        if (chatId && String(chatId) !== botSelfId) {
+          return [String(chatId)];
+        }
+      }
+    }
+  } catch {}
+
+  return [];
+}
+
+interface SendResult {
+  chatId: string;
+  ok: boolean;
+  error?: string;
+}
+
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     return res.status(405).json({ ok: false, error: 'Method Not Allowed' });
   }
 
-  const { fullName, telegramUsername, rpName, characterArchetype, referralSource } = req.body || {};
+  const { actionType, senderName, message } = req.body || {};
 
-  if (!fullName || !telegramUsername || !rpName) {
+  if (!senderName || !message) {
     return res.status(400).json({
       ok: false,
-      error: 'Nama panggilan, username Telegram, dan nama karakter wajib diisi.',
+      error: 'Nama pengirim dan isi pesan wajib diisi.',
     });
   }
 
-  const cleanUsername = String(telegramUsername).startsWith('@')
-    ? String(telegramUsername).trim()
-    : `@${String(telegramUsername).trim()}`;
-
-  const ticketCode = `BWU-${Math.floor(1000 + Math.random() * 9000)}`;
   const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
-  const chatId = process.env.TELEGRAM_CHAT_ID?.trim();
-  let botUsername = (process.env.TELEGRAM_BOT_USERNAME || 'BearWithUsBot').replace(/^@/, '').trim();
-  const groupUrl = process.env.TELEGRAM_GROUP_URL || 'https://t.me/+Z-4ZvjCMtbs4MDBh';
 
   if (token) {
-    try {
-      const meRes = await fetch(`https://api.telegram.org/bot${token}/getMe`);
-      const meData = (await meRes.json()) as { ok: boolean; result?: { username?: string } };
-      if (meData.ok && meData.result?.username) {
-        botUsername = meData.result.username;
-      }
-    } catch {
-      // Keep fallback botUsername
-    }
-  }
+    const chatIds = await resolveValidChatIds(token, process.env.TELEGRAM_CHAT_ID);
 
-  const safeRpSlug = String(rpName)
-    .replace(/[^a-zA-Z0-9]/g, '_')
-    .slice(0, 24);
-  const deepLinkPayload = `reg_${ticketCode}_${safeRpSlug}`;
-  const botDeepLink = `https://t.me/${botUsername}?start=${deepLinkPayload}`;
+    if (chatIds.length > 0) {
+      const headerTitle =
+        actionType === 'keluhan'
+          ? '🛡️ <b>LAPORAN KELUHAN SUASANA CC (RULE #09) — BOT CH</b>'
+          : '🍂 <b>PENGAJUAN IZIN PAMIT / KELUAR (RULE #08) — BOT CH</b>';
 
-  if (token && chatId) {
-    const messageText = [
-      `🐾 <b>TIKET PENDAFTARAN BARU — BEAR WITH US</b>`,
-      `Nomor Tiket: <code>${ticketCode}</code>`,
-      ``,
-      `👤 <b>Nama Panggilan:</b> ${escapeHtml(String(fullName))}`,
-      `📱 <b>Username Telegram:</b> ${escapeHtml(cleanUsername)}`,
-      `🎭 <b>Nama Karakter RP:</b> ${escapeHtml(String(rpName))}`,
-      `🌲 <b>Archetype Karakter:</b> ${escapeHtml(String(characterArchetype || '-'))}`,
-      `🧭 <b>Sumber Info:</b> ${escapeHtml(String(referralSource || '-'))}`,
-      ``,
-      `<i>Status: Menunggu sambutan pengurus di pintu suaka.</i>`,
-    ].join('\n');
+      const text = [
+        headerTitle,
+        ``,
+        `👤 <b>Pengirim:</b> ${escapeHtml(String(senderName))}`,
+        `📝 <b>Pesan / Alasan:</b>`,
+        escapeHtml(String(message)),
+        ``,
+        `<i>Prinsip Pengurus: Solve, Don't Spill.</i>`,
+      ].join('\n');
 
-    try {
-      const sendRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: messageText,
-          parse_mode: 'HTML',
-          reply_markup: {
-            inline_keyboard: [
-              [
-                {
-                  text: `Sapa ${cleanUsername}`,
-                  url: `https://t.me/${cleanUsername.replace(/^@/, '')}`,
-                },
-              ],
-            ],
-          },
-        }),
-      });
+      // Kirim ke semua tujuan sekaligus
+      const results: SendResult[] = await Promise.all(
+        chatIds.map(async (chatId): Promise<SendResult> => {
+          try {
+            const sendRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: chatId,
+                text,
+                parse_mode: 'HTML',
+              }),
+            });
+            const sendData = await sendRes.json();
+            if (sendData.ok) return { chatId, ok: true };
+            return { chatId, ok: false, error: sendData.description || 'Telegram menolak pesan.' };
+          } catch {
+            return { chatId, ok: false, error: 'Gagal menghubungi Telegram.' };
+          }
+        })
+      );
 
-      const sendData = (await sendRes.json()) as { ok: boolean; description?: string };
+      const failed = results.filter((r) => !r.ok);
+      failed.forEach((f) => console.error(`[botch] gagal kirim ke chat ${f.chatId}: ${f.error}`));
 
-      if (sendData.ok) {
+      if (failed.length < results.length) {
         return res.status(200).json({
           ok: true,
           sentViaApi: true,
-          ticketCode,
-          botUsername,
-          botDeepLink,
-          groupUrl,
-          message: 'Data pendaftaran berhasil dikirim otomatis ke grup/admin via Telegram Bot API!',
+          delivered: results.length - failed.length,
+          failed: failed.length,
         });
       }
 
-      return res.status(200).json({
-        ok: true,
-        sentViaApi: false,
-        ticketCode,
-        botUsername,
-        botDeepLink,
-        groupUrl,
-        apiWarning: sendData.description || 'Gagal mengirim via Bot API, dialihkan ke Deep Link.',
-      });
-    } catch {
-      return res.status(200).json({
-        ok: true,
-        sentViaApi: false,
-        ticketCode,
-        botUsername,
-        botDeepLink,
-        groupUrl,
-        apiWarning: 'Koneksi ke Telegram API terputus, dialihkan ke Deep Link.',
+      return res.status(502).json({
+        ok: false,
+        error: failed[0]?.error || 'Telegram menolak pesan.',
       });
     }
   }
 
-  return res.status(200).json({
-    ok: true,
-    sentViaApi: false,
-    ticketCode,
-    botUsername,
-    botDeepLink,
-    groupUrl,
-    message: 'Tiket dibuat. Silakan lanjutkan melalui tombol Kirim Tiket ke Bot atau salin format tiket.',
+  return res.status(503).json({
+    ok: false,
+    error: 'Bot Telegram belum dikonfigurasi di server.',
   });
 }
